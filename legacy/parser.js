@@ -1,3 +1,4 @@
+// Legacy：旧版小爱课程表官方适配器解析器，已停止维护。
 function scheduleHtmlParser(html) {
   function stripTags(s) {
     return s ? String(s).replace(/<[^>]*>/g, "").trim() : "";

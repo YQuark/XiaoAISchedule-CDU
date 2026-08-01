@@ -1,3 +1,4 @@
+// Legacy：旧版小爱课程表官方适配器时间配置，已停止维护。
 function scheduleTimer(opts) {
     function xhrGetAbs(absUrl) {
         var xhr = new XMLHttpRequest();

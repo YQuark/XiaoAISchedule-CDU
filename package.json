@@ -1,0 +1,21 @@
+{
+  "name": "xiaoai-schedule-cdu",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "成都大学课表一键导入小爱课程表的用户脚本",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs --check",
+    "metadata:check": "node scripts/check-metadata.mjs",
+    "test": "node --test test/*.test.js",
+    "check": "npm test && npm run build:check && node --check xiaoai-schedule-cdu.user.js && npm run metadata:check && git diff --check"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "jsdom": "^26.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

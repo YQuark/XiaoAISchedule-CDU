@@ -1,110 +1,86 @@
-# [已失效，官方插件无法登录]CDU 小爱课表抓取适配器
+# XiaoAISchedule-CDU
 
-本仓库包含三部分脚本，用于从成都大学（CDU）教务系统抓取并转换课表数据，便于第三方课表应用加载：
+成都大学课表一键导入小爱课程表的用户脚本。当前正式版本为 **v1.0.0**。
 
-- `provider.js`：负责从页面或子 frame 提取学期参数并调用教务系统接口获取原始课表 JSON；返回字符串化的 `{ data: [...], meta: {...} }`。meta 中包含供 `timer.js` 使用的学期标识。
-- `parser.js`：将 `provider.js` 的 data 数组解析为标准课程对象数组（课程名、教师、教室、星期、节次、周次等），并处理单双周、区间展开与去重。
-- `timer.js`：使用 `provider` 返回的 `meta`（学期 id/xnxq 等）调用教务系统的周次与节次时间接口，生成可被课表应用消费的学期时间配置。
+本项目不再依赖已经无法正常登录的小爱课程表官方适配器环境。脚本直接在成都大学教务系统中读取所选学期的课表和教学时间，展示预览后唤起小爱课程表完成导入。
 
-以下文档说明各文件的契约、使用方法、示例输出与注意事项，方便集成到第三方工具中。
+## 安装
 
-## 文件说明
+1. 在安卓手机浏览器中安装支持用户脚本的扩展或脚本管理器。
+2. [点击安装 `xiaoai-schedule-cdu.user.js`](https://raw.githubusercontent.com/Yaoser-x/XiaoAISchedule-CDU/master/xiaoai-schedule-cdu.user.js)。
+3. 登录 [成都大学教务系统](https://szjw.cdu.edu.cn/)，进入“我的课表”页面。
+4. 点击页面右下角的“导入小爱课程表”。
 
-- `provider.js`
-  - 输入：在浏览器环境中直接运行，脚本会从当前 window/document（及其 frames）查找隐藏字段 `xnxq`、`xhid`、`xqdm`。
-  - 行为：构造查询参数并同步 GET `https://szjw.cdu.edu.cn/admin/pkgl/xskb/sdpkkbList`，返回 JSON 的 `data` 数组。
-  - 输出：字符串（JSON.stringify）形式的对象：{ data: [...], meta: { xnxq, xqid } }。若无法获取关键参数或接口异常，返回字符串 "do not continue"。
+最终唤起依赖小米安卓系统提供的 `voiceassist://` Scheme。桌面浏览器可以读取和预览课表，但不能保证完成最后的应用唤起。
 
-- `parser.js`
-  - 输入：`provider.js` 返回的字符串（即包含 data 数组 的 JSON 字符串）。
-  - 行为：解析为数组后，对每条记录进行字段清洗与映射：
-    - name（课程名）、teacher（教师名）、position（教室/教室编号）、day（星期 1-7）、sections（节次数组）、weeks（周数组）。
-    - 支持周次字符串（含区间 `1-8`、逗号分隔、单双周标识）展开为数字数组。
-    - 会过滤掉特定课程名（示例中排除了含 “大学英语” 的课程），并忽略不完整记录。
-  - 输出：JavaScript 数组，每项形如：{ name, teacher, position, day, sections: [...], weeks: [...] }
+## 使用流程
 
-- `timer.js`
-  - 输入：从 `provider` 返回字符串中解析出的 `meta`（至少需包含学期标识 `xnxq` 与 `xqid`/`xqdm`）。
-  - 行为：调用同步接口 `https://szjw.cdu.edu.cn/admin/api/getZclistByXnxq?xnxq=...&xqid=...` 获取周次列表、节次时间与学期元信息，计算开学周一时间戳、上午/下午/晚上节次数量等。
-  - 输出：一个对象，包含：
-    - totalWeek（总周数）
-    - startSemester（开学周一的时间戳字符串）
-    - startWithSunday（是否以周日为周起始）
-    - showWeekend（是否显示周末）
-    - forenoon / afternoon / night（对应时段内的节次数量）
-    - sections（节次数组，含 section、startTime、endTime）
+1. 脚本读取当前页面和教务课表页面中的学期列表。
+2. 选择当前或历史学期，也可以手动输入形如 `2025-2026-1` 的学期编号。
+3. 脚本重新加载所选学期页面，取得该学期对应的长加密 `xhid` 与校区参数。
+4. 读取课程、周次、节次和开学日期，并显示课程预览。
+5. 核对无误后点击“导入小爱课程表”。
 
-## 快速使用（浏览器环境）
+## v1.0.0 特性
 
-1. 在成都大学教务系统的课表页面打开控制台（或在扩展中注入脚本）。
-2. 运行 `provider.js`：该脚本会返回字符串 (或在扩展中作为 provider 返回值)。示例：
+- 支持当前和历史学期选择，所选学期参数不会与当前页面参数混用。
+- 识别成都大学课表接口需要的长加密 `xhid`，拒绝错误的 32 位内部用户 ID。
+- 支持单双周、周次范围、中文星期、多节课程和重复记录合并。
+- 不过滤“大学英语”或其他真实课程。
+- 从教务系统读取实际节次时间、总周数和开学日期，不使用固定学期配置。
+- 移动端优先的 Shadow DOM 界面，避免受教务系统页面样式影响。
+- 提供课程预览、加载状态、错误提示和重复操作保护。
 
-   - 成功时：返回 JSON 字符串：
-     {
-       "data": [ ... ],
-       "meta": { "xnxq": "2025-2026-1", "xqid": "0101" }
-     }
-   - 失败时：返回字符串 "do not continue"（表示缺少必要页面参数或接口异常）。
+## 隐私与权限
 
-3. 将 `provider` 的结果传入 `parser.js`：
-   - 调用 `scheduleHtmlParser(providerResult)`（其中 providerResult 是字符串）。
-   - 返回值为课程数组，每项示例：
+- 脚本仅匹配 `https://szjw.cdu.edu.cn/*`，不在成都大学其他站点运行。
+- 网络请求只发往成都大学教务系统，并使用浏览器现有登录状态。
+- `xhid` 仅用于本次课表请求，不写入本地存储，也不会输出到日志。
+- 构建产物不加载 CDN、远程 JavaScript 或其他运行时依赖。
+- 导入时，课程与时间数据通过小爱课程表既有 Scheme 交给本机应用。
 
-     { "name": "高等数学", "position": "教学楼101", "teacher": "张三", "weeks": [1,2,3,4,5], "day": 1, "sections": [1,2] }
+## 常见问题
 
-4. 将 `provider` 的 meta 传给 `timer.js`（脚本内部已实现从 meta 读取）：调用 `scheduleTimer({ providerRes: providerResult })`。
-   - 返回值为时间配置对象（见下方示例）。
+### 没有检测到可选学期
 
-## 示例输出
+确认已登录教务系统并进入“我的课表”页面。登录过期时重新登录后刷新页面。
 
-课程对象示例：
+### 没有获取到有效的长加密 xhid
 
-{
-  "name": "高等数学",
-  "position": "教学楼101",
-  "teacher": "张三",
-  "weeks": [1,2,3,4,5,6,7,8],
-  "day": 1,
-  "sections": [1,2]
-}
+先确认所选学期的课表页面可以正常打开。若教务系统刚升级，请在 Issue 中提供错误提示和页面路径；不要公开账号、Cookie、`xhid` 或完整接口响应。
 
-时间配置示例：
+### 课表为空或缺少时间配置
 
-{
-  "totalWeek": 18,
-  "startSemester": "1757260800000",
-  "startWithSunday": false,
-  "showWeekend": true,
-  "forenoon": 4,
-  "afternoon": 4,
-  "night": 2,
-  "sections": [
-    {"section": 1, "startTime": "08:00", "endTime": "08:45"},
-    {"section": 2, "startTime": "08:55", "endTime": "09:40"}
-  ]
-}
+该学期可能尚未发布课表、教学周或节次时间。脚本不会猜测默认 20 周，也不会在关键配置缺失时继续导入。
 
-## 输入/输出
+### 预览正常但没有唤起小爱课程表
 
-- Provider 输入：运行时在教务页面环境下，无需外部参数（从 DOM 读取）。输出：JSON 字符串或 "do not continue"。
-- Parser 输入：provider 返回的字符串。输出：课程对象数组（详见示例）。
-- Timer 输入：provider 返回的字符串（利用 meta 字段）。输出：学期时间配置对象。
+请在安装了小爱课程表能力的小米安卓手机上操作，并允许浏览器打开外部应用。
 
-错误模式与边界情况：
+## 开发
 
-- 若页面无法提供 `xnxq`/`xhid`/`xqdm`，`provider.js` 返回 "do not continue"。集成方应检测并中止后续处理。
-- `parser.js` 对不完整或不可解析的记录会跳过（例如缺少星期/节次/周次时忽略）。
-- `timer.js` 若无法从接口拿到数据，会返回空对象 {}（调用方应判空）。
+需要 Node.js 20 或更高版本。
 
-## 集成与验证建议
+```bash
+npm install
+npm run build
+npm test
+npm run check
+```
 
-- 在集成到扩展或第三方工具时，请在浏览器控制台或扩展容器内同步调用 provider（示例代码中使用同步 XHR）。若你需要异步实现，请将同步 XHR 替换为 fetch/异步 XHR 并相应修改调用链。
-- 最小验证步骤：
-  1. 在教务系统课表页运行 `provider.js`，确认返回含 `data` 与 `meta` 的字符串。
-  2. 将结果传给 `scheduleHtmlParser`，检查是否得到合理数量的课程对象。
-  3. 将相同 provider 输出传给 `scheduleTimer`，确认得到 `startSemester` 与 `sections` 等字段。
+- `src/`：模块化源码。
+- `test/`：课程、时间、导入协议和界面测试。
+- `scripts/`：构建与版本/元数据一致性检查。
+- `xiaoai-schedule-cdu.user.js`：可直接安装的构建产物。
+- `legacy/`：停止维护的旧版官方适配器脚本，仅供历史参考。
 
-## 参考
+构建脚本从 `package.json` 读取版本并生成 userscript 元数据。修改源码后必须重新运行 `npm run build`，`npm run check` 会检查构建产物是否与源码一致。
 
-- `parser.js` 中有一条用于示例的课程过滤（过滤 “大学英语”），可根据需要调整或暴露为配置项。
+## Legacy 说明
+
+旧版 `parser.js`、`provider.js` 和 `timer.js` 已移动到 [`legacy/`](legacy/)。它们依赖旧版小爱课程表官方适配器执行环境，包含同步 XHR 和特定课程过滤等历史行为，不再修复或发布。
+
+## 反馈
+
+请通过 [GitHub Issues](https://github.com/Yaoser-x/XiaoAISchedule-CDU/issues) 提交问题。反馈时可以提供学期编号、错误文字和脱敏后的字段结构，请勿提交登录凭据或完整用户标识。
 

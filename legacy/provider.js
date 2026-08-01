@@ -1,3 +1,4 @@
+// Legacy：旧版小爱课程表官方适配器数据提供器，已停止维护。
 function scheduleHtmlProvider(iframeContent, frameContent, dom) {
     function pickHidden(d, id) {
         try {
